@@ -1,0 +1,280 @@
+一 Ioc容器核心
+Laravel的核心就是一个Ioc容器.称为 服务容器.顾名思义 该容器提供了整个框架需要的一系列服务
+1.容器诞生
+面向对象中 我们有几样东西一直在接触:类 接口 对象.这中间 接口是类的原型,一个类必须遵守其实现的接口,对象则是一个类的实例.
+怪物:Monster
+超人　Superman
+class Superman {
+}
+class Power {
+    protected $ability; // 能力值
+    protected $range; // 能力范围或距离
+
+    public function __construct($ability, $range) {
+        $this->ability = $ability;
+        $this->range = $range;
+    }
+}
+
+修改超人类
+require_once "Power.php";
+class Superman {
+    protected $power;
+
+    public function __construct($power)
+    {
+        $this->power = $power;
+    }
+}
+当我们创建一个“超人”实例的同时也创建了一个“超能力”的实例.但是,我们看到“超人”和“超能力”之间不可避免的产生了一个依赖。
+所谓“依赖”，就是 “我若依赖你，我就不能离开你”。
+在一个贯彻面向对象编程的项目中，这样的依赖随处可见.
+少量的依赖并不会有太过直观的影响，我们随着这个例子逐渐铺开，让大家慢慢意识到,
+当依赖达到一个量级时，是怎样一番噩梦般的体验。当然，我也会自然而然的讲述如何解决问题。
+代码见Demo>2.1
+
+可怕的依赖
+之前超能力类实例化后是一个具体的超能力，但是我们知道，超人的超能力是多元化的，每种超能力的方法、属性都有不小的差异，没法通过一种类描述完全。我们现在进行修改，我们假设超人可以有以下多种超能力：
+
+飞行，属性有：飞行速度、持续飞行时间
+蛮力，属性有：力量值
+能量弹，属性有：伤害值、射击距离、同时射击个数
+我们创建了如下类：
+class Flight {
+    protected $speed;
+    protected $holdtime;
+    public function __construct($speed, $holdtime) {
+        $this->speed = $speed;
+        $this->holdtime = $holdtime;
+    }
+}
+class Force {
+    protected $force;
+    public function __construct($force) {
+        $this->force = $force;
+    }
+}
+
+class Shot {
+    protected $atk;
+    protected $range;
+    protected $limit;
+    public function __construct($atk, $range, $limit) {
+        $this->atk = $atk;
+        $this->range = $range;
+        $this->limit = $limit;
+    }
+}
+我们需要自己手动的在构造函数内（或者其他方法里）实例化一系列需要的类
+这样并不好。可以想象，假如需求变更 需要更多的有针对性的能力 我们必须重新改造Superman
+换句话说就是，改变超能力的同时，我还得重新制造个超人.效率太低了！
+为什么不可以这样呢？超人的能力可以被随时更换，只需要添加或者更新一个芯片或者其他装置啥的（想到钢铁侠没）
+我们不应该手动在 “超人” 类中固化了他的 “超能力” 初始化的行为,而转由外部负责,由外部创造超能力模组 装置或者芯片等(我们后面统一称为 “模组”），植入超人体内的某一个接口，这个接口是一个既定的，只要这个 “模组” 满足这个接口的装置都可以被超人所利用，可以提升、增加超人的某一种能力。
+这种由外部负责其依赖需求的行为，我们可以称其为 "控制反转(IoC)"
+
+工厂模式-依赖转移　
+我们可以想到，组件、工具（或者超人的模组），是一种可被生产的玩意儿，生产的地方当然是 “工厂（Factory）”，于是有人就提出了这样一种模式： 工厂模式。
+工厂模式，顾名思义，就是一个类所依赖的外部事物的实例，都可以被一个或多个 “工厂” 创建的这样一种开发模式，就是 “工厂模式”。
+class SuperModuleFactory
+{
+    public function makeModule($moduleName, $options)
+    {
+        switch ($moduleName) {
+            case 'Fight':
+                return new Fight($options[0], $options[1]);
+            case 'Force':
+                return new Force($options[0]);
+            case 'Shot':
+                return new Shot($options[0], $options[1], $options[2]);
+        }
+    }
+}
+这时候，超人 创建之初就可以使用这个工厂！
+
+class Superman
+{
+    protected $power;
+
+    public function __construct()
+    {
+        // 初始化工厂
+        $factory = new SuperModuleFactory;
+
+        // 通过工厂提供的方法制造需要的模块
+        $this->power = $factory->makeModule('Fight', [9, 100]);
+    }
+}
+
+可以看得出，我们不再需要在超人初始化之初，去初始化许多第三方类，只需初始化一个工厂类，即可满足需求。
+但这样似乎和以前区别不大，只是没有那么多 new 关键字。其实我们稍微改造一下这个类，你就明白，工厂类的真正意义和价值了。
+class Superman
+{
+    protected $power;
+
+    public function __construct(array $modules)
+    {
+        // 初始化工厂
+        $factory = new SuperModuleFactory;
+
+        // 通过工厂提供的方法制造需要的模块
+        foreach ($modules as $moduleName => $moduleOptions) {
+            $this->power[] = $factory->makeModule($moduleName, $moduleOptions);
+        }
+    }
+}
+
+// 创建超人
+$superman = new Superman([
+    'Fight' => [9, 100],
+    'Shot' => [99, 50, 2]
+]);
+现在 "超人"的创建不再依赖任何一个 “超能力” 的类.我们如若修改了或者增加了新的超能力,只需要针对修改 SuperModuleFactory 即可.
+扩充超能力的同时不再需要重新编辑超人的类文件,使得我们变得很轻松.但是，这才刚刚开始.
+
+Ioc容器的重要组成-依赖注入
+由 “超人” 对 “超能力” 的依赖变成 “超人” 对 “超能力模组工厂” 的依赖后，对付小怪兽们变得更加得心应手。
+但这也正如你所看到的，依赖并未解除，只是由原来对多个外部的依赖变成了对一个 “工厂” 的依赖。假如工厂出了点麻烦，问题变得就很棘手。
+其实大多数情况下,工厂模式已经足够了.
+工厂模式的缺点就是：接口未知（即没有一个很好的契约模型，关于这个我马上会有解释）,产生对象类型单一.
+总之就是 还是不够灵活 虽然如此 工厂模式依旧十分优秀 并且适用于绝大多数情况
+不过我们为了讲解后面的依赖注入 ，这里就先夸大一下工厂模式的缺陷咯
+我们知道 超人依赖的模组 我们要求有统一的接口 这样才能和超人身上的注入接口对接 最终起到提升超能力的效果
+事实上不仅仅只有一堆小怪兽 还有更多的大怪兽这时候似乎工厂的生产能力显得有些不足 —— 由于工厂模式下
+所有的模组都已经在工厂类中安排好了，如果有新的 高级的模组加入 我们必须修改工厂类（好比增加新的生产线）
+class SuperModuleFactory
+{
+    public function makeModule($moduleName, $options)
+    {
+        switch ($moduleName) {
+            case 'Fight':
+                return new Fight($options[0], $options[1]);
+            case 'Force':
+                return new Force($options[0]);
+            case 'Shot':
+                return new Shot($options[0], $options[1], $options[2]);
+            // case 'more': .......
+            // case 'and more': .......
+            // case 'and more': .......
+            // case 'oh no! its too many!': .......
+        }
+    }
+}
+
+[反射创建类实例]
+其实灵感就差一步！你可能会想到更为灵活的办法！对，下一步就是我们今天的主要配角 —— DI （依赖注入）
+由于对超能力模组的需求不断增大 我们需要集合整个世界的高智商人才 一起解决问题
+不应该仅仅只有几个工厂垄断负责 不过高智商人才们都非常自负 认为自己的想法是对的 创造出的超能力模组没有统一的接口自然而然无法被正常使用
+这时我们需要提出一种契约 这样无论是谁创造出的模组 都符合这样的接口 自然就可被正常使用
+interface SuperModuleInterface {
+    /*
+     * 超能力激活方法
+     * 任何一个超能力都得有该方法　并拥有一个参数
+     */
+    public function active($target = []);
+}
+上文中，我们定下了一个接口 （超能力模组的规范、契约），所有被创造的模组必须遵守该规范，才能被生产。
+其实，这就是 php 中接口（ interface ）的用处和意义！很多人觉得，为什么 php 需要接口这种东西？难道不是 java 、 C# 之类的语言才有的吗？这么说，只要是一个正常的面向对象编程语言（虽然 php 可以面向过程），都应该具备这一特性。
+因为一个 对象（object） 本身是由他的模板或者原型 —— 类 （class） ，经过实例化后产生的一个具体事物
+而有时候，实现统一种方法且不同功能（或特性）的时候，会存在很多的类（class），这时候就需要有一个契约，让大家编写出可以被随时替换却不会产生影响的接口。这种由编程语言本身提出的硬性规范，会增加更多优秀的特性。
+
+interface SuperModuleInterface
+{
+    /**
+     * 超能力激活方法
+     *
+     * 任何一个超能力都得有该方法，并拥有一个参数
+     *@param array $target 针对目标，可以是一个或多个，自己或他人
+     */
+    public function activate(array $target);
+}
+
+根据接口　创建下类
+require_once "SuperModuleInterface.php";
+use Demo\Four\SuperModuleInterface;
+class Xpower implements SuperModuleInterface{
+    public function active($target = [])
+    {
+        // TODO: Implement active() method.
+    }
+}
+require_once "SuperModuleInterface.php";
+use Demo\Four\SuperModuleInterface;
+class Bomb implements SuperModuleInterface{
+    public function active($target = [])
+    {
+        // TODO: Implement active() method.
+    }
+}
+同时，为了防止有些 “砖家” 自作聪明，或者一些叛徒恶意捣蛋，不遵守契约胡乱制造模组，影响超人，我们对超人初始化的方法进行改造：
+class Superman
+{
+    protected $module;
+
+    public function __construct(SuperModuleInterface $module)
+    {
+        $this->module = $module;
+    }
+}
+改造完毕！现在，当我们初始化 “超人” 类的时候，提供的模组实例必须是一个 SuperModuleInterface 接口的实现。否则就会提示错误。
+正是由于超人的创造变得容易，一个超人也就不需要太多的超能力，我们可以创造多个超人，并分别注入需要的超能力模组即可。
+
+什么叫做依赖注入？
+// 超能力模组
+$superModule = new XPower;
+// 初始化一个超人，并注入一个超能力模组依赖
+$superMan = new Superman($superModule);
+
+更为先进的工厂 —— IoC 容器
+刚刚列了一段代码：
+
+$superModule = new XPower;
+$superMan = new Superman($superModule);
+读者应该看出来了，手动的创建了一个超能力模组、手动的创建超人并注入了刚刚创建超能力模组。呵呵，手动。
+
+现代社会，应该是高效率的生产，干净的车间，完美的自动化装配。
+一群怪兽来了，如此低效率产出超人是不现实，我们需要自动化 —— 最多一条指令，千军万马来相见。
+我们需要一种高级的生产车间，我们只需要向生产车间提交一个脚本，工厂便能够通过指令自动化生产。这种更为高级的工厂，就是工厂模式的升华 —— IoC 容器。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Laravel 服务容器是用于管理类的依赖和执行依赖注入的工具。依赖注入这个花俏名词实质上是指：类的依赖项通过构造函数，或者某些情况下通过「setter」方法「注入」到类中。
