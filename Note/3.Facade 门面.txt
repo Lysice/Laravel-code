@@ -1,0 +1,28 @@
+Route方法为何能以静态方法访问? 文档中讲过 简单讲就是模拟一个类,提供一个静态魔术方法,并将该静态方法
+映射到真正方法中。
+我们使用的 Route 类实际上是 Illuminate\Support\Facades\Route 通过 class_alias() 函数创造的别名而已，这个类被定义在文件 vendor/laravel/framework/src/Illuminate/Support/Facades/Route.php 。
+
+我们打开文件一看……诶？怎么只有这么简单的一段代码呢？
+
+<?php
+    namespace Illuminate\Support\Facades;
+
+    /**
+     * @see \Illuminate\Routing\Router
+     */
+    class Route extends Facade {
+
+        /**
+         * Get the registered name of the component.
+         *
+         * @return string
+         */
+        protected static function getFacadeAccessor()
+        {
+            return 'router';
+        }
+
+}
+其实仔细看，会发现这个类继承了一个叫做 Facade 的类，到这里谜底差不多要解开了。
+
+上述简单的定义中，我们看到了 getFacadeAccessor 方法返回了一个 route，这是什么意思呢？事实上，这个值被一个 ServiceProvider 注册过，大家应该知道注册了个什么，当然是那个真正的路由类！
