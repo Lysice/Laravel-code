@@ -234,11 +234,71 @@ $superMan = new Superman($superModule);
 现代社会，应该是高效率的生产，干净的车间，完美的自动化装配。
 一群怪兽来了，如此低效率产出超人是不现实，我们需要自动化 —— 最多一条指令，千军万马来相见。
 我们需要一种高级的生产车间，我们只需要向生产车间提交一个脚本，工厂便能够通过指令自动化生产。这种更为高级的工厂，就是工厂模式的升华 —— IoC 容器。
+class Container {
+    protected $binds;
+    protected $instances;
 
+    public function bind($abstract, $concrete) {
+        if($concrete instanceof Closure) {
+            $this->binds[$abstract] = $concrete;
+        } else {
+            $this->instances[$abstract] = $concrete;
+        }
+    }
 
+    public function make($abstract, $params = []) {
+        if(isset($this->instances[$abstract])) {
+            return $this->instances[$abstract];
+        }
 
+        array_unshift($params, $this);
 
+        return call_user_func_array($this->binds[$abstract], $params);
+    }
+}
 
+使用
+$container = new Container();
+// 超人的生产脚本
+$container->bind('superman', function ($container, $moduleName) {
+    return new Superman($container->make($moduleName));
+});
+$container->bind('xpower', function ($container) {
+    return new Xpower();
+});
+$container->bind('bomb', function ($container) {
+    return new Bomb();
+})
+
+$superman1 = $container->make('superman', 'xpower');
+$superman2 = $container->make('superman', 'bomb');
+
+通过最初的 绑定（bind） 操作，我们向 超级工厂 注册了一些生产脚本，这些生产脚本在生产指令下达之时便会执行。发现没有？我们彻底的解除了 超人 与 超能力模组 的依赖关系，更重要的是，容器类也丝毫没有和他们产生任何依赖！我们通过注册、绑定的方式向容器中添加一段可以被执行的回调（可以是匿名函数、非匿名函数、类的方法）作为生产一个类的实例的 脚本 ，只有在真正的 生产（make） 操作被调用执行时，才会触发。
+
+实际上，真正的 IoC 容器更为高级。我们现在的例子中，还是需要手动提供超人所需要的模组参数，但真正的 IoC 容器会根据类的依赖需求，自动在注册、绑定的一堆实例中搜寻符合的依赖需求，并自动注入到构造函数参数中去。Laravel 框架的服务容器正是这么做的
+
+这种自动搜寻依赖需求的功能，是通过反射（Reflection）实现的，恰好的，php 完美的支持反射机制！关于反射，php 官方文档有详细的资料，并且中文翻译基本覆盖，足够学习和研究：
+
+重新看Laravel核心
+Laravel的核心就是一个Ioc容器
+可以说，Laravel 的核心本身十分轻量，并没有什么很神奇很实质性的应用功能。
+很多人用到的各种功能模块比如 Route（路由）、Eloquent ORM（数据库 ORM 组件）、Request（请求）以及 Response（响应）等等等等，实际上都是与核心无关的类模块提供的，这些类从注册到实例化，最终被你所使用，其实都是 Laravel 的服务容器负责的。
+
+路由:
+Route::get('/', function() {
+
+});
+实际上， Route 类被定义在这个命名空间：Illuminate\Routing\Router，文件 vendor/laravel/framework/src/Illuminate/Routing/Router.php。
+
+我们在前文介绍 IoC 容器的部分中，提到了，一个类需要绑定、注册至容器中，才能被“制造”。
+
+对，一个类要被容器所能够提取，必须要先注册至这个容器。既然 Laravel 称这个容器叫做服务容器，那么我们需要某个服务，就得先注册、绑定这个服务到容器，
+那么提供服务并绑定服务至容器的东西，就是服务提供者（Service Provider）。
+虽然，绑定一个类到容器不一定非要通过服务提供者。
+但是我们知道 有时候我们的类 模块 会有需要其他类和组件的情况,为了保证初始化阶段不会出现所需要的模块和组件没有注册的情况,Laravel 将注册和初始化行为进行
+拆分,注册只能注册,初始化只能初始化,拆分之后就是服务提供者。
+服务提供者主要分为两部分,register(注册) boot(引导 初始化) 具体参考文档。register 负责进行向容器注册脚本 但是要注意 注册部分不要对未知事物依赖 如果有
+则需要放在boot中。
 
 
 
