@@ -1,8 +1,7 @@
 Route方法为何能以静态方法访问? 文档中讲过 简单讲就是模拟一个类,提供一个静态魔术方法,并将该静态方法
 映射到真正方法中。
-我们使用的 Route 类实际上是 Illuminate\Support\Facades\Route 通过 class_alias() 函数创造的别名而已，这个类被定义在文件 vendor/laravel/framework/src/Illuminate/Support/Facades/Route.php 。
-
-我们打开文件一看……诶？怎么只有这么简单的一段代码呢？
+我们使用的 Route 类实际上是 Illuminate\Support\Facades\Route 通过 class_alias() 函数创造的别名而已，这个类被定义在文件 vendor/laravel/framework/src/Illuminate/Support/Facades/Route.php
+文件中代码
 
 <?php
     namespace Illuminate\Support\Facades;
@@ -23,6 +22,70 @@ Route方法为何能以静态方法访问? 文档中讲过 简单讲就是模拟
         }
 
 }
-其实仔细看，会发现这个类继承了一个叫做 Facade 的类，到这里谜底差不多要解开了。
+其实仔细看,会发现这个类继承了一个叫做 Facade的类
 
-上述简单的定义中，我们看到了 getFacadeAccessor 方法返回了一个 route，这是什么意思呢？事实上，这个值被一个 ServiceProvider 注册过，大家应该知道注册了个什么，当然是那个真正的路由类！
+上述简单的定义中 我们看到了 getFacadeAccessor方法返回了一个 route 这是什么意思呢？
+要弄清楚这个问题　先来看Facades模式
+外观模式　(结构型) 通过外观包装　使应用程序只能看到外观对象，而不会看到具体细节对象，这会降低程序复杂度，并且提高程序维护性．
+在遇到以下情况的时候使用Facades模式
+1)当你要为一个复杂子系统提供一个简单接口时,子系统往往因为不断演化而变得越来越复杂.
+大多数模式使用时都会产生更多更小的类.
+这使得子系统更具可重用性,也更容易对子系统进行定制,但这也给那些不需要定制子系统的用户带来一些使用上的困难.
+facade可以提供一个简单的缺省视图,这一视图对大多数用户来说已经足够,而那些需要更多的可定制性的用户可以越过facade层.
+2)客户程序与抽象类的实现部分之间存在着很大的依赖性.引入facade将这个子系统与客户以及其他的子系统分离,可以提高子系统的独立性和可移植性.
+3)当你需要构建一个层次结构的子系统时,使用facade模式定义子系统中每层的入口点.如果子系统之间是相互依赖的,你可以让它们仅通过facade进行通讯，从而简化了它们之间的依赖关系
+我们先写一个DB类
+
+namespace API;
+class DB{
+    public function __construct($args){
+
+    }
+    public function Write($str){
+        echo 'Write:'.$str.PHP_EOL;
+    }
+    public function Read($str){
+        echo 'Read:'.$str.PHP_EOL;
+    }
+}
+数据库读写是整个系统非常常用的操作。但是DB类会注册在服务容器里，每次数据库读写都要把DB类的对象从服务容器里取出，实在很不方便。
+
+我们写一个Facade类
+
+class Facade{
+    public function __construct(){
+        //
+    }
+
+    public static function getInstance($classname,$args){
+        return new $classname($args);
+    }
+
+    public static function getFacadeAccessor(){
+        //
+    }
+
+    public static function __callstatic($method,$arg){
+        $instance=static::getInstance(static::getFacadeAccessor(),[1,2,3]);
+        return call_user_func_array(array($instance,$method),$arg);
+    }
+}
+要理解这个类，我们只要关注最后一个函数，就是__callstatic魔术方法。这个方法就是Facade类型对象在调用他自身没有定义过的函数时，就会调用__callstatic方法，是一个“候选人”的角色。
+
+我们再定义一个DBFacade类
+
+class DBFacade extends Facade{
+    public static function getFacadeAccessor(){
+        return API\DB::class;
+    }
+}
+每一个Facade子类都要实现getFacadeAccessor方法，返回只是一个类名字符串，用来代入getInstance方法，来创建一个真正“做事情”的类。
+
+此时，Facade已经可以用了，我们调用DBFacade的静态方法
+
+1
+DBFacade::Write('hello');
+
+Laravel内部Facades实现：
+
+
