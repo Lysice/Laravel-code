@@ -88,4 +88,6 @@ DBFacade::Write('hello');
 
 Laravel内部Facades实现：
 
+目录:laravel/framework/src/Illuminate/Support/Facades/Facade.php
+
 
