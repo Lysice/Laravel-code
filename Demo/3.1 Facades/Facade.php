@@ -22,6 +22,7 @@ class Facade {
     public static function __callStatic($method, $arguments)
     {
         $instance = static::getInstance(static::getFacadeAccessor(), [1, 2, 3]);
-        return call_user_func_array([$instance, $method], $arguments);
+//        return call_user_func_array([$instance, $method], $arguments);
+        return $instance->$method($arguments);
     }
 }
