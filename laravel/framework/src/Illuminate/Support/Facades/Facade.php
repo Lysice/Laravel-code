@@ -46,4 +46,21 @@ abstract class Facade
 
         return $instance->$method(...$arguments); // 可变参数
     }
+
+    // 未知函数
+    public static function spy()
+    {
+        if (! static::isMock()) {
+            $class = static::getMockableClass();
+
+            static::swap($class ? Mockery::spy($class) : Mockery::spy());
+        }
+    }
+
+    protected static function isMock()
+    {
+//        $name = static::getFacadeAccessor();
+//        return isset(static::$resolvedInstance[$name]) && static::$resolvedInstance[$name] instanceof MockInterface;
+    }
+
 }
