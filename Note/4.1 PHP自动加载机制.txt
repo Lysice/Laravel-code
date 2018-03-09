@@ -1,0 +1,103 @@
+自动加载功能带来优点：
+1.使用类前不需要include require
+2.使用类的时候 才会引入
+例子
+function __autoload($class_name) {
+   echo '__autload class:', $class_name, '<br />';
+}
+
+new Demo();
+以上的代码在最后会输出：__autload class:Demo。
+并在此之后报错显示： Fatal error: Class ‘Demo’ not found
+
+我们一般使用_autoload自动加载类如下：
+<?php
+
+　　function __autoload($class_name) {
+　　     require_once ($class_name . “class.php”);
+　　}
+   $memo= new Demo();　　
+
+function __autoload($class_name) {
+$path = str_replace('_', '/', $class_name);
+require_once $path . '.php';
+}
+// 这里会自动加载Http/File/Interface.php 文件
+$a = new Http_File_Interface();
+
+这种方法的好处就是简单易使用。当然也有缺点，缺点就是将类名和文件路径强制做了约定，当修改文件结构的时候，就势必要修改类名。
+
+__autoload的使用方法2（直接映射法）
+代码如下:
+
+$map = array(
+'Http_File_Interface' => 'C:/PHP/HTTP/FILE/Interface.php'
+);
+function __autoload($class_name) {
+if (isset($map[$class_name])) {
+require_once $map[$class_name];
+}
+}
+// 这里会自动加载C:/PHP/HTTP/FILE/Interface.php 文件
+$a = new Http_File_Interface();
+autoload会做三件事情 1.根据类名确定类文件名 2.确定类文件所在的磁盘路径 3.从磁盘加载
+
+当有大量的类文件要包含的时候,我们只要确定相应的规则,然后在__autoload()函数中,
+将类名与实际的磁盘文件对应起来,就可以实现lazy loading的效果.
+从这里我们也可以看出_autoload()函数的实现中最重要的是类名与实际的磁盘文件映射规则的实现.
+如果在一个系统中 需要使用很多类库 这些类库可能是由不同开发人员编写 其类名与实际磁盘文件的映射规则不尽相同。
+问题出在 autoload 全局函数 只能定义一次, 不够灵活。如果解决 使用 __autoload调用堆栈。就是SPL autoload.
+
+SPL是标准PHP库的简写。是PHP5的一个扩展库。主要功能包括 autoload机制实现以及各种接口和类。
+
+1.spl_autoload_register 注册autoload函数
+2.spl_autoload_unregister 注销autoload函数
+3.spl_autoload_functions  返回已经注册的函数
+4.spl_autoload_call 尝试将所有已注册的函数来加载类。
+5.spl_autoload     __autoload的默认实现
+6.spl_autoload_extensions 注册并返回spl_autoload函数使用的默认文件扩展名.
+
+set_include_path(get_include_path() . PATH_SEPARATOR . 'some/path' . DIRECTORY_SEPARATOR);
+spl_autoload_extensions('.php,.inc,.some');
+spl_autoload_register();
+
+function __autoload($class_name) {
+    echo '__autload class:', $class_name, '<br />';
+}
+function classLoader($class_name) {
+    echo 'SPL load class:', $class_name, '<br />';
+}
+spl_autoload_register('classLoader');
+new Test();//结果：SPL load class:Test
+
+语法：bool  spl_autoload_register ( [callback $autoload_function] )
+接受两个参数：一个是添加到自动加载栈的函数，另外一个是加载器不能找到这个类时是否抛出异常的标志。
+第一个参数是可选的，并且默认指向spl_autoload()函数 这个函数会自动在路径中查找具有小写类名和.php扩展或者.ini扩展名
+或者任何注册到spl_autoload_extensions()函数中的其它扩展名的文件。
+
+<?php
+class CalssLoader
+{
+    public static function loader($classname)
+    {
+        $class_file = strtolower($classname).".php";
+        if (file_exists($class_file)){
+            require_once($class_file);
+        }
+    }
+}
+// 方法为静态方法
+spl_autoload_register('CalssLoader::loader');
+$test = new Test();
+
+一旦调用spl_autoload_register()函数，当调用未定义类时，系统会按顺序调用注册到spl_autoload_register()函数的所有函数，而不是自动调用__autoload()函数。如果要避免这种情况，需采用一种更加安全的spl_autoload_register()函数的初始化调用方法：
+
+if(false === spl_autoload_functions()){
+    if(function_exists('__autoload')){
+        spl_autoload_register('__autoload',false);
+    }
+ }
+
+ spl_autoload_functions()函数会返回已注册函数的一个数组,如果SPL自动加载栈还没有被初始化,它会返回布尔值false。然后，检查是否有一个名为__autoload()的函数存在,如果存在，可以将它注册为自动加载栈中的第一个函数，从而保留它的功能。之后，可以继续注册自动加载函数。
+
+还可以调用spl_autoload_register()函数以注册一个回调函数,而不是为函数提供一个字符串名称。如提供一个如array('class','method')这样的数组,使得可以使用某个对象的方法。
