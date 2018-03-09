@@ -1,8 +1,10 @@
+第一部分 抛砖引玉
 Route方法为何能以静态方法访问? 文档中讲过 简单讲就是模拟一个类,提供一个静态魔术方法,并将该静态方法
 映射到真正方法中。
-我们使用的 Route 类实际上是 Illuminate\Support\Facades\Route 通过 class_alias() 函数创造的别名而已，这个类被定义在文件 vendor/laravel/framework/src/Illuminate/Support/Facades/Route.php
-文件中代码
+我们使用的 Route 类实际上是 Illuminate\Support\Facades\Route 通过 class_alias() 函数创造的别名而已，这个类被定义在文件
+vendor/laravel/framework/src/Illuminate/Support/Facades/Route.php
 
+文件中代码
 <?php
     namespace Illuminate\Support\Facades;
 
@@ -25,6 +27,8 @@ Route方法为何能以静态方法访问? 文档中讲过 简单讲就是模拟
 其实仔细看,会发现这个类继承了一个叫做 Facade的类
 
 上述简单的定义中 我们看到了 getFacadeAccessor方法返回了一个 route 这是什么意思呢？
+
+Facade模式
 要弄清楚这个问题　先来看Facades模式
 外观模式　(结构型) 通过外观包装　使应用程序只能看到外观对象，而不会看到具体细节对象，这会降低程序复杂度，并且提高程序维护性．
 在遇到以下情况的时候使用Facades模式
@@ -70,7 +74,8 @@ class Facade{
         return call_user_func_array(array($instance,$method),$arg);
     }
 }
-要理解这个类，我们只要关注最后一个函数，就是__callstatic魔术方法。这个方法就是Facade类型对象在调用他自身没有定义过的函数时，就会调用__callstatic方法，是一个“候选人”的角色。
+要理解这个类，我们只要关注最后一个函数，就是__callstatic魔术方法。这个方法就是Facade类型对象在调用他自身没有定义过的函数时，
+就会调用__callstatic方法，是一个“候选人”的角色。
 
 我们再定义一个DBFacade类
 
@@ -83,8 +88,10 @@ class DBFacade extends Facade{
 
 此时，Facade已经可以用了，我们调用DBFacade的静态方法
 
-1
 DBFacade::Write('hello');
+
+
+
 
 Laravel内部Facades实现：
 
