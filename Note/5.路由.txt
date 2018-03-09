@@ -1,0 +1,36 @@
+1.使用
+1.1路由属性注册
+位置:routes目录 自动加载
+routes/web.php 定义了web页面路由 这些路由被分配了web中间件组，从而可以提供session crsf防护等功能.
+routes/api.php无状态 被分配了api中间件组
+1.2 路由method
+ Route::get($uri, $callback)
+ Route::post($uri, $callback)
+ Route::put($uri, $callback)
+ Route::patch($uri, $callback)
+ Route::options($uri, $callback)
+ Route::delete($uri, $callback)
+
+ Route::any($uri, $callback)
+ Route::match([],$uri, $callback)
+
+一般HTML表单不支持put patch delete 等动作 这时候需要在前端添加一个隐藏的_method字段到表单中
+<input type='hidden' name='_method' value='PUT'>
+web路由文件中所有请求方式为PUT POST DELETE的html表单都会包含一个CSRF令牌字段  否则请求会被拒绝
+【CSRF攻击方式】
+<form method="POST" action="/profile">
+    {{ csrf_field() }}
+    ...
+</form>
+1.3 路由schema 协议
+Route::get('foo/{bar}', ['http', function () {
+    }]);
+Route::get('foo/{bar}', ['https', function () {
+    }]);
+    Route::any('', [])
+
+3.路由正则编译与匹配
+4.路由中间件
+5.路由控制器与参数绑定
+6.RESTful 路由
+
