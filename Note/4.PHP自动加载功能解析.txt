@@ -1,0 +1,101 @@
+第一部分 PHP自动加载功能的由来
+通常使用include require 方法引入 但是大型开发项目中 使用这种方式会带来一些隐含问题
+如果需要使用很多类 则需要很多require include语句。不容易维护。
+
+PHP5为此提供了解决方案 就是类的自动加载机制(autoload) autoload 机制可以使得PHP程序有可能在使用类时才自动包含类文件
+而非一开始就把所有类文件include进来，这种机制也称为lazy loading.
+
+4.1 PHP自动加载机制
+4.2 PHP自动加载机制的实现
+
+第二部分 namespace 命名空间
+从广义上说 命名空间是一种封装的方法
+操作系统:目录用于将相关文件分组 目录中的文件扮演了命名空间的角色
+文件foo.txt 可以同时在目录/home/greg /home/other中存在 但是同一个目录不能存在两个foo.txt文件
+
+PHP中命名空间解决的问题:
+1.编写的类 函数 常量等名字冲突
+2.为很长的名称创建别名，提高可读性
+
+第三部分 PSR标准 PSR0 PSR4 规范文件与命名空间的映射关系 名字 所在目录位置
+PSR标准是什么? Proposing a standards Recommendation 提出标准建议
+PSR发明者规范者：PHP-FIG php-fig.org fig:Framework Interoperability Group缩写
+目的：最低限度的限制 统一项目的编码规范 避免各家自行发展 风格阻碍程序开发
+PSR-0 autoloading-standard 自动加载标准
+PSR-4 improved autoloading 自动加载的增强版本
+
+PSR-1 基础编码标准
+PSR-2 编码风格向导
+PSR-3 日志接口
+
+PSR-0
+1、 一个完全合格的namespace和class必须符合这样的结构：“\< Vendor Name>(< Namespace>)*< Class Name>”
+2、每个namespace必须有一个顶层的namespace（”Vendor Name”提供者名字）
+3、每个namespace可以有多个子namespace
+4、当从文件系统中加载时，每个namespace的分隔符(/)要转换成 DIRECTORYSEPARATOR(操作系统路径分隔符)
+5、在类名中，每个下划线()符号要转换成DIRECTORYSEPARATOR(操作系统路径分隔符)。在namespace中，下划线\符号是没有（特殊）意义的。
+6、当从文件系统中载入时，合格的namespace和class一定是以 .php 结尾的
+7、verdor name,namespaces,class名可以由大小写字母组合而成（大小写敏感的）
+1 2 3 7 对命名空间的名字做出限制
+4,5 对命名空间和文件目录关系做出限制。
+6 文件后缀名 必须以.php结尾
+限制命名空间名字 限制文件目录所在位置 限制文件目录所在位置与命名空间映射关系
+限制命名空间名字+限制命名空间名字与文件目录映射 = 限制文件目录
+
+
+好了，我们先想一想，对于一个具体程序来说，如果它想要支持PSR0标准,它需要做什么调整呢？
+
+首先，程序必须定义一个符合PSR0标准第4、5条的映射函数，然后把这个函数注册到spl_register()中；
+其次，定义一个新的命名空间时，命名空间的名字和所在文件的目录位置必须符合第1、2、3、7条。
+  
+   一般为了代码维护方便，我们会在一个文件只定义一个命名空间。
+   好了，我们有了符合PSR0的命名空间的名字，通过符合PSR0标准的映射关系就可以得到符合PSR0标准的文件目录地址，如果我们按照PSR0标准正确存放文件，就可以顺利require该文件了，我们就可以使用该命名空间啦，是不是很神奇呢？
+  
+   接下来，我们详细地来看看PSR0标准到底规范了什么呢？
+  
+   我们以laravel中第三方库Symfony其中一个命名空间/Symfony/Core/Request为例，讲一讲上面PSR0标准。
+  
+
+一个完全合格的namespace和class必须符合这样的结构：“\< Vendor Name>(< Namespace>)*< Class Name>”
+  上面所展示的/Symfony就是Vendor Name，也就是第三方库的名字，/Core是Namespace名字，一般是我们命名空间的一些属性信息(例如request是Symfony的核心功能)；最后Request就是我们命名空间的名字，这个标准规范就是让人看到命名空间的来源、功能非常明朗，有利于代码的维护。
+  
+
+2 . 每个namespace必须有一个顶层的namespace（”Vendor Name”提供者名字）
+
+  也就是说每个命名空间都要有一个类似于/Symfony的顶级命名空间，为什么要有这种规则呢？因为PSR0标准只负责顶级命名空间之后的映射关系，也就是/Symfony/Core/Request这一部分，关于/Symfony应该关联到哪个目录，那就是用户或者框架自己定义的了。所谓的顶层的namespace，就是自定义了映射关系的命名空间，一般就是提供者名字（第三方库的名字）。换句话说顶级命名空间是自动加载的基础。为什么标准要这么设置呢？原因很简单，如果有个命名空间是/Symfony/Core/Transport/Request，还有个命名空间是/Symfony/Core/Transport/Request1,如果没有顶级命名空间，我们就得写两个路径和这两个命名空间相对应，如果再有Request2、Request3呢。有了顶层命名空间/Symfony，那我们就仅仅需要一个目录对应即可，剩下的就利用PSR标准去解析就行了。
+  
+
+3.每个namespace可以有多个子namespace
+
+  这个很简单，Request可以定义成/Symfony/Core/Request，也可以定义成/Symfony/Core/Transport/Request，/Core这个命名空间下面可以有很多子命名空间，放多少层命名空间都是自己定义。
+
+  
+
+4.当从文件系统中加载时，每个namespace的分隔符(/)要转换成 DIRECTORY_SEPARATOR(操作系统路径分隔符)
+
+  现在我们终于来到了映射规范了。命名空间的/符号要转为路径分隔符，也就是说要把/Symfony/Core/Request这个命名空间转为\Symfony\Core\Request这样的目录结构。
+  
+
+5.在类名中，每个下划线_符号要转换成DIRECTORYSEPARATOR(操作系统路径分隔符)。在namespace中，下划线\符号是没有（特殊）意义的。
+
+  这句话的意思就是说，如果我们的命名空间是/Symfony/Core/Request_a，那么我们就应该把它映射到\Symfony\Core\Request\a这样的目录。为什么会有这种规定呢？这是因为PHP5之前并没有命名空间，程序员只能把名字起成Symfony_Core_Request_a这样，PSR0的这条规定就是为了兼容这种情况。
+  剩下两个很简单就不说了。
+  
+  有这样的命名空间命名规则和映射标准，我们就可以推理出我们应该把命名空间所在的文件该放在哪里了。依旧以Symfony/Core/Request为例， 它的目录是/path/to/project/vendor/Symfony/Core/Request.php，其中/path/to/project是你项目在磁盘的位置，/path/to/project/vendor是项目用的所有第三方库所在目录。/path/to/project/vendor/Symfony就是与顶级命名空间/Symfony存在对应关系的目录，再往下的文件目录就是按照PSR0标准建立的：
+
+   /Symfony/Core/Request => /Symfony/Core/Request.php
+
+   一切很完满了是吗？不，还有一些瑕疵：
+
+我们是否应该还兼容没有命名空间的情况呢？
+按照PSR0标准，命名空间/A/B/C/D/E/F必然对应一个目录结构/A/B/C/D/E/F，这种目录结构层次是不是太深了？
+composer 自动加载原理
+
+
+
+
+
+
+
+
+
